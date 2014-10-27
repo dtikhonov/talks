@@ -1,0 +1,29 @@
+#!/usr/bin/env perl
+#
+# Generate tags file out of one or more config files.
+# What is produced works with vim.
+
+use strict;
+use warnings;
+
+my @tags;
+my ($section, $section_re);
+for my $file (@ARGV) {
+    open my $fh, '<', $file
+        or die "cannot open $file for reading: $!";
+    while (<$fh>) {
+        if (/^(\s*\[([^]]*)\])/) {
+            ($section, $section_re) = ($2, $1);
+            # s is for "section"
+            push @tags, "$section\t$file\t/^$section_re/;\"\ts\n";
+        } elsif (/^(\s*(\w+)\s*=(?:\s+|\b|<<))/) {
+            # f is for "function"
+            push @tags,            "$2\t$file\t/^$1/;\"\tf\n";
+            push @tags, "${section}_$2\t$file\t/^$section_re/;/^$1/;\"\tf\n"
+                if defined $section;
+        }
+    }
+    close $fh;
+}
+
+print sort @tags;
