@@ -38,6 +38,34 @@ Fortran Go HTML Java JavaScript Lisp Lua Make MatLab ObjectiveC OCaml
 Pascal Perl PHP Python REXX Ruby Scheme Sh SLang SML SQL Tcl Tex Vera
 Verilog VHDL Vim YACC
 
+# ctags command line
+
+- Extensive set of command-line options
+- Which files to index
+- Specifying output
+- Associate files with languages
+- And more
+- ...and more
+
+# Which files to index
+
+~~~
+# Index one file:
+ctags my-file.pm
+
+# Index a bunch recursively
+ctags -R dir dir dir
+
+# Index everything in @INC:
+ctags -R `perl -e 'print "@INC"'`
+~~~
+
+# Specifying output
+
+- By default, `tags` is created
+- Use `-f` option to override
+- `-f-` prints to stdout
+
 # Setting up Vim
 
 - :set iskeyword+=:
@@ -45,7 +73,7 @@ Verilog VHDL Vim YACC
 # Basic Vim commands
 
 - Ctrl + ]
-- Ctrl + g
+- g + ]
 - Ctrl + t
 - :tags
 
