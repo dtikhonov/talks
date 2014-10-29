@@ -66,18 +66,67 @@ ctags -R `perl -e 'print "@INC"'`
 - Use `-f` option to override
 - `-f-` prints to stdout
 
-# Setting up Vim
+# What Perl things are there?
 
-- :set iskeyword+=:
+Ask `ctags --list-kinds=Perl`
+
+- constants
+- formats
+- labels
+- packages
+- subroutines
+- subroutine declarations
+
+# A Contrived Example
+
+~~~perl
+package My::Package;
+use constant ABC => 123;
+sub do_this;
+do_this @ARGV;
+sub do_this {
+    AGAIN: write; shift;
+    goto AGAIN if @_;
+}
+format =
+@#####
+$_[0]
+.
+~~~
+
+# What is inside tag files?
+
+- header
+- one tag per line
+- sorted
+- editors do binary search
 
 # Basic Vim commands
 
-- Ctrl + ]
-- g + ]
-- Ctrl + t
-- :tags
+## Jump to tag:
 
-# What is inside tag files?
+- I'm feeling lucky: `Ctrl + ]`
+- `g + ]`
+
+## Jump back:
+- `Ctrl + t`
+
+## See where you've been:
+
+- `:tags`
+
+# Fully Qualified Tags
+
+~~~perl
+# For calls like this:
+My::Package::do_this(@args);
+~~~
+
+`ctags --extra=+q`
+
+# Setting up Vim
+
+- :set iskeyword+=:
 
 # Tag for other things
 
