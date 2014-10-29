@@ -1,0 +1,17 @@
+#!/usr/bin/perl
+# Print some settings from config file.
+
+use AppConfig qw(:expand :argcount);
+
+$config = AppConfig->new({
+    CREATE => 1,
+    GLOBAL => {
+        ARGCOUNT => ARGCOUNT_ONE,
+    },
+});
+$config->file(@ARGV);
+
+for $name (qw(ctags_attributes secret_attributes)) {
+    my $value = $config->get($name);
+    print "$name is set to `$value'\n";
+}
