@@ -128,7 +128,14 @@ My::Package::do_this(@args);
 
 - :set iskeyword+=:
 
-# Tag for other things
+# Tags for other things
+
+## Seen in Perl code:
+
+- SQL
+- JavaScript
+- C structs
+- More
 
 # Write your own tag-producing code
 
