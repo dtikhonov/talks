@@ -4,12 +4,18 @@
 
 # Outline
 
-- Short demo
+- Short Demo
 - Tools to create tag files
-- Setting up Vim
-- Basic Vim commands
+- Exuberant Ctags
+- ctags command line
+- Which files to index
+- Specifying output
+- What Perl things are there?
+- A Contrived Example
 - What is inside tag files?
-- Tag for other things
+- Basic Vim commands
+- Fully Qualified Tags
+- Tags for other things
 - Write your own tag-producing code
 - Merging tag files
 - Contribute to development
