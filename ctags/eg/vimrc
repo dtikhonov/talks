@@ -1,0 +1,2 @@
+"" vimrc:
+:au FileType perl setlocal iskeyword+=:
