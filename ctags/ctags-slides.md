@@ -58,6 +58,9 @@ ctags -R dir dir dir
 
 # Index everything in @INC:
 ctags -R `perl -e 'print "@INC"'`
+
+# A bunch of files:
+ctags -L bunch-of-files.txt
 ~~~
 
 # Specifying output
@@ -65,6 +68,7 @@ ctags -R `perl -e 'print "@INC"'`
 - By default, `tags` is created
 - Use `-f` option to override
 - `-f-` prints to stdout
+- Use `-a` to append to existing tags file
 
 # What Perl things are there?
 
@@ -98,8 +102,8 @@ $_[0]
 
 - header
 - one tag per line
-- sorted
-- editors do binary search
+- tags are sorted by default
+- vim defaults to binary search
 
 # Basic Vim commands
 
@@ -115,18 +119,32 @@ $_[0]
 
 - `:tags`
 
-# Fully Qualified Tags
+# Fully Qualified Tags: Why
+
+## Use case 1
 
 ~~~perl
 # For calls like this:
 My::Package::do_this(@args);
 ~~~
 
+## Use case 2
+
+~~~bash
+vi -t Edit::This::function
+~~~
+
+# Fully Qualified Tags: How
+
+## Extra option to ctags
+
 `ctags --extra=+q`
 
-# Setting up Vim
+## Setting up Vim
 
-- :set iskeyword+=:
+~~~vim
+:au FileType perl setlocal iskeyword+=:
+~~~
 
 # Tags for other things
 
