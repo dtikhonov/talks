@@ -2,7 +2,11 @@
 % Dmitri Tikhonov
 % PPW 2014
 
-# Two Senseless Practices
+# ...before we all come to our senses!
+
+![](images/quick-volcano.jpg)
+
+# Two Oft-Used Practices
 
 - One is a Best (TM) practice
 - One is a common practice
@@ -33,20 +37,20 @@ if ($ABC) {
 
 # 2: Odd way to declare Readonly
 
-~~~
+~~~perl
 Readonly my $RO => 123;
 ~~~
 
 . . .
 
-~~~
+~~~perl
 # This compiles, too:
 my Readonly $RO => 123;
 ~~~
 
 . . .
 
-~~~
+~~~perl
 # And this:
 Readonly my $RO = 123;  # no fat comma
     # quick, what's the value of $RO?
@@ -74,8 +78,7 @@ if ($error_condition) {
 
 - Exuberant Ctags does not support it
 - Perl::Tags does not support it
-- You have to index *all variables* to get Readonly
-  vars.
+    - You have to index *all variables* to get Readonly vars.
 
 # Argument against `use constant`
 
@@ -116,6 +119,8 @@ sub _init {
 ~~~perl
 package Sub::Class;
 use base qw(Super::Class);
+# Unrelated function, not meant to
+# override anything:
 sub _init {
     do_something_else_now();
 }
