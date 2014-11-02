@@ -16,8 +16,8 @@
 - Basic Vim commands
 - Fully Qualified Tags
 - Tags for other things
+- Using multiple tag files
 - Write your own tag-producing code
-- Merging tag files
 - Contribute to development
 
 # Short Demo
@@ -131,7 +131,7 @@ $_[0]
 
 ~~~perl
 # For calls like this:
-My::Package::do_this(@args);
+File::Temp::unlink0($fh, $local);
 ~~~
 
 ## Use case 2
@@ -161,8 +161,24 @@ vi -t Edit::This::function
 - C structs
 - More
 
+# Using multiple tag files
+
+- In Vim: `:set tags=tags1,tags2`
+- Merging tag files
+    - For default files, header is optional
+    - Merging as easy as
+
+~~~
+LC_ALL=C sort tags1 tags2 > tags
+~~~
+
 # Write your own tag-producing code
 
-# Merging tag files
+- Easier than one may think
+- Just generate some ex commands
+- Example: .ini files used by `AppConfig`
 
 # Contribute to development
+
+- https://github.com/fishman/ctags
+- https://github.com/osfameron/perl-tags
