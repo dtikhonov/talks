@@ -17,9 +17,9 @@ for my $file (@ARGV) {
             # s is for "section"
             push @tags, "$section\t$file\t/^$section_re/;\"\ts\n";
         } elsif (/^(\s*(\w+)\s*=(?:\s+|\b|<<))/) {
-            # f is for "function"
-            push @tags,            "$2\t$file\t/^$1/;\"\tf\n";
-            push @tags, "${section}_$2\t$file\t/^$section_re/;/^$1/;\"\tf\n"
+            # v is for "variable"
+            push @tags,            "$2\t$file\t/^$1/;\"\tv\n";
+            push @tags, "${section}_$2\t$file\t/^$section_re/;/^$1/;\"\tv\n"
                 if defined $section;
         }
     }
