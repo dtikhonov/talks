@@ -75,8 +75,9 @@ ctags -L bunch-of-files.txt
 - Use `-f` option to override
 - `-f-` prints to stdout
 - Use `-a` to append to existing tags file
+- Use `-e` for emacs (`TAGS` is created)
 
-# What Perl things are there?
+# Kinds of Perl tags
 
 Ask `ctags --list-kinds=Perl`
 
@@ -87,7 +88,7 @@ Ask `ctags --list-kinds=Perl`
 - subroutines
 - subroutine declarations
 
-# A Contrived Example
+# Very Small Example
 
 ~~~perl
 package My::Package;
@@ -115,8 +116,9 @@ $_[0]
 
 ## Jump to tag:
 
-- I'm feeling lucky: `Ctrl + ]`
-- `g + ]`
+- I'm feeling lucky: `:tag` or `Ctrl + ]`
+- `:tselect` or `g + ]`
+- `:tjump` or `g + Ctrl + ]`
 
 ## Jump back:
 - `Ctrl + t`
@@ -156,9 +158,9 @@ vi -t Edit::This::function
 
 ## Seen in Perl code:
 
-- SQL
+- C
 - JavaScript
-- C structs
+- SQL
 - More
 
 # Using multiple tag files
