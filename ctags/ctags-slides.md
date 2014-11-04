@@ -11,7 +11,7 @@
 - Which files to index
 - Specifying output
 - What Perl things are there?
-- A Contrived Example
+- Very Small Example
 - What is inside tag files?
 - Basic Vim commands
 - Fully Qualified Tags
