@@ -86,7 +86,7 @@ Ask `ctags --list-kinds=Perl`
 - labels
 - packages
 - subroutines
-- subroutine declarations
+- subroutine declarations (off by default)
 
 # Very Small Example
 
@@ -105,7 +105,7 @@ $_[0]
 .
 ~~~
 
-# What is inside tag files?
+# What is inside a tag file?
 
 - header
 - one tag per line
@@ -144,9 +144,17 @@ vi -t Edit::This::function
 
 # Fully Qualified Tags: How
 
-## Extra option to ctags
+## `extra` option to ctags
 
-`ctags --extra=+q`
+~~~
+ctags --extra=+q
+~~~
+
+## I like them: ~/.ctags
+
+~~~
+--extra=+q
+~~~
 
 ## Setting up Vim
 
@@ -172,6 +180,12 @@ vi -t Edit::This::function
 
 ~~~
 LC_ALL=C sort tags1 tags2 > tags
+~~~
+
+or
+
+~~~
+perl -e 'print sort <>' tags1 tags2 > tags
 ~~~
 
 # Write your own tag-producing code
