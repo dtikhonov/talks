@@ -49,7 +49,7 @@ Verilog VHDL Vim YACC
 - Extensive set of command-line options
 - Which files to index
 - Specifying output
-- Associate files with languages
+- Perl-related options
 - And more
 - ...and more
 
