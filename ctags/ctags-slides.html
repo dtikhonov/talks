@@ -104,18 +104,16 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <section id="outline" class="slide level1">
 <h1>Outline</h1>
 <ul>
-<li>Short Demo</li>
+<li>Short demo</li>
 <li>Tools to create tag files</li>
 <li>Exuberant Ctags</li>
 <li>ctags command line</li>
-<li>Which files to index</li>
-<li>Specifying output</li>
-<li>What Perl things are there?</li>
-<li>Very Small Example</li>
+<li>Kinds of Perl tags</li>
+<li>Very small example</li>
 <li>What is inside tag files?</li>
 <li>Basic Vim commands</li>
-<li>Fully Qualified Tags</li>
-<li>Tags for other things</li>
+<li>Fully qualified tags</li>
+<li>Tags for non-Perl source</li>
 <li>Using multiple tag files</li>
 <li>Write your own tag-producing code</li>
 <li>Contribute to development</li>
@@ -196,7 +194,7 @@ ctags -L bunch-of-files.txt</code></pre>
 </ul>
 </section>
 <section id="very-small-example" class="slide level1">
-<h1>Very Small Example</h1>
+<h1>Very small example</h1>
 <pre class="sourceCode perl"><code class="sourceCode perl"><span class="kw">package</span> <span class="fu">My::Package</span>;
 <span class="fu">use</span> <span class="kw">constant</span> ABC =&gt; <span class="dv">123</span>;
 <span class="kw">sub </span><span class="fu">do_this</span>;
@@ -216,7 +214,7 @@ do_this <span class="dt">@ARGV</span>;
 <li>header</li>
 <li>one tag per line</li>
 <li>tags are sorted by default</li>
-<li>vim defaults to binary search</li>
+<li>Vim defaults to binary search</li>
 </ul>
 </section>
 <section id="basic-vim-commands" class="slide level1">
@@ -237,7 +235,7 @@ do_this <span class="dt">@ARGV</span>;
 </ul>
 </section>
 <section id="fully-qualified-tags-why" class="slide level1">
-<h1>Fully Qualified Tags: Why</h1>
+<h1>Fully qualified tags: why</h1>
 <h2 id="use-case-1">Use case 1</h2>
 <pre class="sourceCode perl"><code class="sourceCode perl"><span class="co"># For calls like this:</span>
 <span class="fu">File::Temp</span>::<span class="fu">unlink0</span>(<span class="dt">$</span>fh, <span class="dt">$local</span>);</code></pre>
@@ -245,7 +243,7 @@ do_this <span class="dt">@ARGV</span>;
 <pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">vi</span> -t Edit::This::function</code></pre>
 </section>
 <section id="fully-qualified-tags-how" class="slide level1">
-<h1>Fully Qualified Tags: How</h1>
+<h1>Fully qualified tags: how</h1>
 <h2 id="extra-option-to-ctags"><code>extra</code> option to ctags</h2>
 <pre><code>ctags --extra=+q</code></pre>
 <h2 id="i-like-them-.ctags">I like them: ~/.ctags</h2>
@@ -253,8 +251,8 @@ do_this <span class="dt">@ARGV</span>;
 <h2 id="setting-up-vim">Setting up Vim</h2>
 <pre class="vim"><code>:au FileType perl setlocal iskeyword+=:</code></pre>
 </section>
-<section id="tags-for-other-things" class="slide level1">
-<h1>Tags for other things</h1>
+<section id="tags-for-non-perl-source" class="slide level1">
+<h1>Tags for non-Perl source</h1>
 <h2 id="seen-in-perl-code">Seen in Perl code:</h2>
 <ul>
 <li>C</li>

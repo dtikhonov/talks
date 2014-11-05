@@ -4,18 +4,16 @@
 
 # Outline
 
-- Short Demo
+- Short demo
 - Tools to create tag files
 - Exuberant Ctags
 - ctags command line
-- Which files to index
-- Specifying output
-- What Perl things are there?
-- Very Small Example
+- Kinds of Perl tags
+- Very small example
 - What is inside tag files?
 - Basic Vim commands
-- Fully Qualified Tags
-- Tags for other things
+- Fully qualified tags
+- Tags for non-Perl source
 - Using multiple tag files
 - Write your own tag-producing code
 - Contribute to development
@@ -88,7 +86,7 @@ Ask `ctags --list-kinds=Perl`
 - subroutines
 - subroutine declarations (off by default)
 
-# Very Small Example
+# Very small example
 
 ~~~perl
 package My::Package;
@@ -110,7 +108,7 @@ $_[0]
 - header
 - one tag per line
 - tags are sorted by default
-- vim defaults to binary search
+- Vim defaults to binary search
 
 # Basic Vim commands
 
@@ -127,7 +125,7 @@ $_[0]
 
 - `:tags`
 
-# Fully Qualified Tags: Why
+# Fully qualified tags: why
 
 ## Use case 1
 
@@ -142,7 +140,7 @@ File::Temp::unlink0($fh, $local);
 vi -t Edit::This::function
 ~~~
 
-# Fully Qualified Tags: How
+# Fully qualified tags: how
 
 ## `extra` option to ctags
 
@@ -162,7 +160,7 @@ ctags --extra=+q
 :au FileType perl setlocal iskeyword+=:
 ~~~
 
-# Tags for other things
+# Tags for non-Perl source
 
 ## Seen in Perl code:
 
