@@ -6,8 +6,7 @@
 use strict;
 use warnings;
 
-my @tags;
-my ($section, $section_re);
+my (@tags, $section, $section_re);
 for my $file (@ARGV) {
     open my $fh, '<', $file
         or die "cannot open $file for reading: $!";
