@@ -14,12 +14,10 @@ for my $file (@ARGV) {
     while (<$fh>) {
         if (/^(\s*\[([^]]*)\])/) {
             ($section, $section_re) = ($2, $1);
-            # s is for "section"
-            push @tags, "$section\t$file\t/^$section_re/;\"\ts\n";
+            push @tags, "$section\t$file\t/^$section_re/\n";
         } elsif (/^(\s*(\w+)\s*=(?:\s+|\b|<<))/) {
-            # v is for "variable"
-            push @tags,            "$2\t$file\t/^$1/;\"\tv\n";
-            push @tags, "${section}_$2\t$file\t/^$section_re/;/^$1/;\"\tv\n"
+            push @tags,            "$2\t$file\t/^$1/\n";
+            push @tags, "${section}_$2\t$file\t/^$section_re/;/^$1/\n"
                 if defined $section;
         }
     }
