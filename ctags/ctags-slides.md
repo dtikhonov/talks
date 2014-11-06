@@ -58,14 +58,14 @@ Verilog VHDL Vim YACC
 # Index one file:
 ctags my-file.pm
 
-# Index a bunch recursively
+# Index recursively:
 ctags -R dir dir dir
 
 # Index everything in @INC:
 ctags -R `perl -e 'print "@INC"'`
 
 # A bunch of files:
-ctags -L bunch-of-files.txt
+ctags -L list-of-files.txt
 ~~~
 
 # Specifying output
