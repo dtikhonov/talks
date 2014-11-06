@@ -30,7 +30,8 @@
 - Perl::Tags
     - Perl source only
     - Written in Perl
-    - Indexes more objects; may be slow
+    - Supports more objects (Moose, anyone?)
+    - Interesting features; extensible; may be slow
     - I contributed some tidbits to it
 
 # Exuberant Ctags
