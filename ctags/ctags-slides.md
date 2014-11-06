@@ -189,7 +189,7 @@ perl -e 'print sort <>' tags1 tags2 > tags
 
 # Write your own tag-producing code
 
-- Easier than one may think
+- Easier than one might think
 - Just generate some ex commands
 - Example: .ini files used by `AppConfig`
 
