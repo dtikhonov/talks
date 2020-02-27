@@ -1,9 +1,9 @@
-html: lsquic-slides.html
-
 pdf: lsquic-slides.pdf
 
+html: lsquic-slides.html
+
 lsquic-slides.html: lsquic-slides.md Makefile
-	pandoc --self-contained -t s5 -s lsquic-slides.md -o lsquic-slides.html
+	pandoc --self-contained -t dzslides -s lsquic-slides.md -o lsquic-slides.html
 
 lsquic-slides.pdf: lsquic-slides.md Makefile
 	pandoc -t beamer -V theme:Madrid -V aspectratio:169 \
