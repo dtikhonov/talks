@@ -43,7 +43,7 @@ make
 
 # Which QUIC do you mean?
 - Google QUIC vs IETF QUIC
-- gQUIC? uQUIC? iQUIC for yogurt?
+- gQUIC? iQUIC? We all QUIC for yogurt?
 - Google QUIC is on the way out
 - In the slides that follow, "QUIC" means "IETF QUIC"
 
@@ -157,6 +157,32 @@ make
   };
 ```
 
+# Packets out example
+```c
+  static int
+  my_packets_out (void *ctx, const struct lsquic_out_spec *specs,
+                                              unsigned n_specs) {
+      struct msghdr msg;  memset(&msg, 0, sizeof(msg));
+      unsigned n;
+      for (n = 0; n < n_specs; ++n) {
+          msg.msg_name       = (void *) specs[n].dest_sa;
+          msg.msg_namelen    = sizeof(struct sockaddr_in);
+          msg.msg_iov        = specs[n].iov;
+          msg.msg_iovlen     = specs[n].iovlen;
+          if (sendmsg((int) specs[n].peer_ctx, &msg, 0) < 0)
+              break;
+      }
+      return (int) n;
+  }
+```
+
+# Resuming sending packets
+- If ``ea_packets_out`` can't send all packets, engine enters the
+  "can't send packets" mode
+  - For a second
+- Call ``lsquic_engine_send_unsent_packets()`` when sending is
+  possible again
+
 # When to process connections
 - Connections are either tickable immediately or at some future point
 - Future point may be a retransmission, idle, or some other alarm
@@ -172,20 +198,21 @@ make
 ```
 
 # Tickable connection
-- There are incoming packets;
-- A stream is both readable by the user code and the user code wants to read from it;
-- A stream is both writeable by the user code and the user code wants to write to it;
-- User has written to stream outside of on_write() callbacks (that is allowed) and now there are packets ready to be sent;
-- A timer (pacer, retransmission, idle, etc) has expired;
-- A control frame needs to be sent out;
+- There are incoming packets
+- A stream is both readable by the user code and the user code wants
+  to read from it
+- A stream is both writeable by the user code and the user code wants
+  to write to it
+- User has written to stream outside of ``on_write()`` callbacks (that
+  is allowed) and now there are packets ready to be sent
+- A timer (pacer, retransmission, idle, etc) has expired
+- A control frame needs to be sent out
 - A stream needs to be serviced or created
-
-# Resuming sending packets
 
 # Required engine callbacks
 - Callback to send packets
 - Connection and stream callbacks
-- on_new_conn(), on_read(), and so on
+- ``on_new_conn()``, ``on_read()``, and so on
 - Callback to get default TLS context (server only)
 - Certificate lookup by SNI (server only)
 
@@ -196,9 +223,183 @@ make
 - Shared memory hash
 
 # Engine constructor
-
 - Server or client
-- HTTP
+- HTTP mode
+```c
+  /* Return a new engine instance.
+   * `flags' is bitmask of LSENG_SERVER and LSENG_HTTP.
+   * `api' is required.
+   */
+  lsquic_engine_t *
+  lsquic_engine_new (unsigned flags,
+                     const struct lsquic_engine_api *api);
+```
+
+# Specifying engine callbacks
+- Pass pointer to ``struct lsquic_engine_api``
+```c
+  struct lsquic_engine_api engine_api = {
+      .ea_packets_out     = send_packets_out,
+      .ea_packets_out_ctx = sender_ctx,
+      .ea_stream_if       = &stream_callbacks,
+      .ea_stream_if_ctx   = &some_context,
+  };
+```
+
+# Stream and connection callbacks
+- Specified in ``struct lsquic_stream_if``
+- Mandatory callbacks:
+  - ``on_new_conn()`` - new connection is created
+  - ``on_conn_closed()``
+  - ``on_new_stream()``
+  - ``on_read()``
+  - ``on_write()``
+  - ``on_close()``
+- Optional callbacks:
+  - ``on_goaway_received()``
+  - ``on_new_token()``
+  - ``on_hsk_done()`` (client only)
+  - ``on_zero_rtt_info()`` (client only)
+
+# On new connection
+- Server: handshake successful; client: object created
+- Chance to create custom per-connection context
+```c
+  /* Return pointer to per-connection context.  OK to return NULL. */
+  static lsquic_conn_ctx_t *
+  my_on_new_conn (void *ea_stream_if_ctx, lsquic_conn_t *conn)
+  {
+    struct some_context *ctx = ea_stream_if_ctx;
+    struct my_conn_ctx *my_ctx = my_ctx_new(ctx);
+    if (ctx->is_client)
+      /* Need a stream to send request */
+      lsquic_conn_make_stream(conn);
+    return (void *) my_ctx;
+  }
+```
+
+# On new stream
+- Depending on situation, register interest in reading or writing
+  - Or just read or write
+- Chance to create per-stream context
+```c
+  /* Return pointer to per-connection context.  OK to return NULL. */
+  static lsquic_stream_ctx_t *
+  my_on_new_stream (void *ea_stream_if_ctx, lsquic_stream_t *stream) {
+      struct some_context *ctx = ea_stream_if_ctx;
+      /* Associate some data with this stream: */
+      struct my_stream_ctx *stream_ctx
+                    = my_stream_ctx_new(ea_stream_if_ctx);
+      stream_ctx->stream = stream;
+      if (ctx->is_client)
+        lsquic_stream_wantwrite(stream, 1);
+      return (void *) stream_ctx;
+  }
+```
+
+# On read
+- Read data -- or collect error
+```c
+  static void
+  my_on_read (lsquic_stream_t *stream, lsquic_stream_ctx_t *h) {
+      struct my_stream_ctx *my_stream_ctx = (void *) h;
+      unsigned char buf[BUFSZ];
+
+      ssize_t nr = lsquic_stream_read(stream, buf, sizeof(buf));
+      /* Do something with the data.... */
+      if (nr == 0) /* EOF */ {
+        lsquic_stream_shutdown(stream, 0);
+        lsquic_stream_wantwrite(stream, 1); /* Want to reply */
+      }
+  }
+```
+
+# On write
+- If called, you should be able to write *some* bytes
+```c
+  static void
+  my_on_write (lsquic_stream_t *stream, lsquic_stream_ctx_t *h) {
+      struct my_stream_ctx *my_stream_ctx = (void *) h;
+      ssize_t nw = lsquic_stream_write(stream,
+          my_stream_ctx->resp, my_stream_ctx->resp_sz);
+      if (nw == my_stream_ctx->resp_sz)
+        lsquic_stream_close(stream);
+  }
+```
+
+# On stream close
+- After this, stream will be destroyed, drop all pointers to it
+```c
+  static void
+  my_on_close (lsquic_stream_t *stream, lsquic_stream_ctx_t *h) {
+    lsquic_conn_t *conn = lsquic_stream_conn(stream);
+    struct my_conn_ctx *my_ctx = lsquic_conn_get_ctx(conn);
+    if (!has_more_reqs_to_send(my_ctx)) /* For example */
+      lsquic_conn_close(conn);
+    free(h);
+  }
+```
+
+# On connection close
+- After this, connection will be destroyed, drop all pointers to it
+```c
+  static void
+  my_on_conn_closed (lsquic_conn_t *conn) {
+      struct my_conn_ctx *my_ctx = lsquic_conn_get_ctx(conn);
+      struct some_context *ctx = my_ctx->some_context;
+
+      --ctx->n_conns;
+      if (0 == ctx->n_conn && (ctx->flags & CLOSING))
+          exit_event_loop(ctx);
+
+      free(my_ctx);
+  }
+```
+
+# Client: making connection
+```c
+  lsquic_conn_t *
+  lsquic_engine_connect (lsquic_engine_t *, enum lsquic_version,
+        const struct sockaddr *local_sa,
+        const struct sockaddr *peer_sa,
+        void *peer_ctx,
+        lsquic_conn_ctx_t *conn_ctx,
+        const char *hostname,         /* Used for SNI */
+        unsigned short max_packet_size,
+        const unsigned char *zero_rtt, size_t zero_rtt_len,
+        const unsigned char *token, size_t token_sz);
+```
+
+# Specifying QUIC version
+- There is no version negotiation version in QUIC... yet
+- When passed to ``lsquic_engine_connect``, ``N_LSQVER`` means "let
+  the engine pick the version"
+  - The engine picks the highest it supports, so that's a good
+    way to go
+```c
+enum lsquic_version
+{
+    LSQVER_043, LSQVER_046, LSQVER_050,   /* Google QUIC */
+    LSQVER_ID25, LSQVER_ID27,             /* IETF QUIC */
+    /* ...some special entries skipped */
+    N_LSQVER
+};
+```
+
+# Server: additional callbacks
+- SSL context and certificate callbacks
+```c
+  typedef struct ssl_ctx_st * (*lsquic_lookup_cert_f)(
+      void *lsquic_cert_lookup_ctx, const struct sockaddr *local,
+      const char *sni);
+
+  struct lsquic_engine_api {
+    lsquic_lookup_cert_f   ea_lookup_cert;
+    void                  *ea_cert_lu_ctx;
+    struct ssl_ctx_st *  (*ea_get_ssl_ctx)(void *peer_ctx);
+    /* (Other members of the struct are not shown) */
+  };
+```
 
 # QUIC Tools
 
