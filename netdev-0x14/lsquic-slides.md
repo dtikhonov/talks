@@ -142,7 +142,7 @@ make
 
 # Outgoing packet specification
 - Why ``iovec``?
-  - UDP packet can contain more than one QUIC packet
+  - UDP datagram can contain more than one QUIC packet
   - Packet coalescing
 
 ```c
@@ -205,7 +205,6 @@ make
   to write to it
 - User has written to stream outside of ``on_write()`` callbacks (that
   is allowed) and now there are packets ready to be sent
-- A timer (pacer, retransmission, idle, etc) has expired
 - A control frame needs to be sent out
 - A stream needs to be serviced or created
 
@@ -269,12 +268,12 @@ make
   static lsquic_conn_ctx_t *
   my_on_new_conn (void *ea_stream_if_ctx, lsquic_conn_t *conn)
   {
-    struct some_context *ctx = ea_stream_if_ctx;
-    struct my_conn_ctx *my_ctx = my_ctx_new(ctx);
-    if (ctx->is_client)
-      /* Need a stream to send request */
-      lsquic_conn_make_stream(conn);
-    return (void *) my_ctx;
+      struct some_context *ctx = ea_stream_if_ctx;
+      struct my_conn_ctx *my_ctx = my_ctx_new(ctx);
+      if (ctx->is_client)
+          /* Need a stream to send request */
+          lsquic_conn_make_stream(conn);
+      return (void *) my_ctx;
   }
 ```
 
@@ -292,7 +291,7 @@ make
                     = my_stream_ctx_new(ea_stream_if_ctx);
       stream_ctx->stream = stream;
       if (ctx->is_client)
-        lsquic_stream_wantwrite(stream, 1);
+          lsquic_stream_wantwrite(stream, 1);
       return (void *) stream_ctx;
   }
 ```
@@ -308,8 +307,8 @@ make
       ssize_t nr = lsquic_stream_read(stream, buf, sizeof(buf));
       /* Do something with the data.... */
       if (nr == 0) /* EOF */ {
-        lsquic_stream_shutdown(stream, 0);
-        lsquic_stream_wantwrite(stream, 1); /* Want to reply */
+          lsquic_stream_shutdown(stream, 0);
+          lsquic_stream_wantwrite(stream, 1); /* Want to reply */
       }
   }
 ```
@@ -323,7 +322,7 @@ make
       ssize_t nw = lsquic_stream_write(stream,
           my_stream_ctx->resp, my_stream_ctx->resp_sz);
       if (nw == my_stream_ctx->resp_sz)
-        lsquic_stream_close(stream);
+          lsquic_stream_close(stream);
   }
 ```
 
@@ -332,11 +331,11 @@ make
 ```c
   static void
   my_on_close (lsquic_stream_t *stream, lsquic_stream_ctx_t *h) {
-    lsquic_conn_t *conn = lsquic_stream_conn(stream);
-    struct my_conn_ctx *my_ctx = lsquic_conn_get_ctx(conn);
-    if (!has_more_reqs_to_send(my_ctx)) /* For example */
-      lsquic_conn_close(conn);
-    free(h);
+      lsquic_conn_t *conn = lsquic_stream_conn(stream);
+      struct my_conn_ctx *my_ctx = lsquic_conn_get_ctx(conn);
+      if (!has_more_reqs_to_send(my_ctx)) /* For example */
+          lsquic_conn_close(conn);
+      free(h);
   }
 ```
 
@@ -376,14 +375,15 @@ make
   the engine pick the version"
   - The engine picks the highest it supports, so that's a good
     way to go
+
 ```c
-enum lsquic_version
-{
-    LSQVER_043, LSQVER_046, LSQVER_050,   /* Google QUIC */
-    LSQVER_ID25, LSQVER_ID27,             /* IETF QUIC */
-    /* ...some special entries skipped */
-    N_LSQVER
-};
+  enum lsquic_version
+  {
+      LSQVER_043, LSQVER_046, LSQVER_050,     /* Google QUIC */
+      LSQVER_ID25, LSQVER_ID27, LSQVER_ID29,  /* IETF QUIC */
+      /* ...some special entries skipped */
+      N_LSQVER
+  };
 ```
 
 # Server: additional callbacks
