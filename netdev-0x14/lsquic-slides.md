@@ -521,6 +521,171 @@ void tut_process_conns (struct tut *tut) {
     void *ctx);
 ```
 
+# Stream read: copy data
+- The classic way to read
+- Easy, but it copies data
+```c
+  static void
+  tut_client_on_read_v0 (lsquic_stream_t *stream, lsquic_stream_ctx_t *h)
+  {
+    struct tut *tut = (struct tut *) h;
+    unsigned char buf[3];
+    ssize_t nread = lsquic_stream_read(stream, buf, sizeof(buf));
+    if (nread > 0)
+    {
+        fwrite(buf, 1, nread, stdout);
+        fflush(stdout);
+    }
+  /* --- 8< --- snip --- 8< --- */
+  }
+```
+
+# Stream read take 2: use callback
+```c
+  static void
+  tut_client_on_read_v1 (lsquic_stream_t *stream, lsquic_stream_ctx_t *h)
+  {
+    struct tut *tut = (struct tut *) h;
+    size_t nread = lsquic_stream_readf(stream, tut_client_readf_v1, NULL);
+    if (nread == 0)
+    {
+        LOG("read to end-of-stream: close and read from stdin again");
+        lsquic_stream_shutdown(stream, 0);
+        ev_io_start(tut->tut_loop, &tut->tut_u.c.stdin_w);
+    }
+  /* --- 8< --- snip --- 8< --- */
+  }
+```
+
+# Stream read take 2: the callback itself
+- `len` may be arbitrary (and larger than packet size)
+- Return value smaller than `len` to stop callback
+```c
+  static size_t
+  tut_client_readf_v1 (void *ctx, const unsigned char *data,
+                                                    size_t len, int fin)
+  {
+      if (len)
+      {
+          fwrite(data, 1, len, stdout);
+          fflush(stdout);
+      }
+      return len;
+  }
+```
+
+# Stream read take 3: use FIN
+- Save one `on_read()` call
+```c
+  struct client_read_v2_ctx { struct tut *tut; lsquic_stream_t *stream; };
+  
+  static void
+  tut_client_on_read_v2 (lsquic_stream_t *stream,
+                                              lsquic_stream_ctx_t *h) {
+    struct tut *tut = (struct tut *) h;
+    struct client_read_v2_ctx v2ctx = { tut, stream, };
+    ssize_t nread = lsquic_stream_readf(stream, tut_client_readf_v2,
+                                                                &v2ctx);
+    if (nread < 0)
+      /* ERROR */
+  }
+```
+
+# Stream read take 3: the callback itself
+```c
+  static size_t
+  tut_client_readf_v2 (void *ctx, const unsigned char *data,
+                                                size_t len, int fin) {
+    struct client_read_v2_ctx *v2ctx = ctx;
+    if (len)
+      fwrite(data, 1, len, stdout);
+    if (fin)
+    {
+      fflush(stdout);
+      LOG("read to end-of-stream: close and read from stdin again");
+      lsquic_stream_shutdown(v2ctx->stream, 0);
+      ev_io_start(v2ctx->tut->tut_loop, &v2ctx->tut->tut_u.c.stdin_w);
+    }
+    return len;
+  }
+```
+
+# Stream write take 1
+```c
+  static void
+  tut_server_on_write_v0 (lsquic_stream_t *stream, lsquic_stream_ctx_t *h)
+  {
+    struct tut_server_stream_ctx *const tssc = (void *) h;
+    ssize_t nw = lsquic_stream_write(stream,
+        tssc->tssc_buf + tssc->tssc_off, tssc->tssc_sz - tssc->tssc_off);
+    if (nw > 0)
+    {
+        tssc->tssc_off += nw;
+        if (tssc->tssc_off == tssc->tssc_sz)
+            lsquic_stream_close(stream);
+  /* --- 8< --- snip --- 8< --- */
+  }
+```
+
+# Write using callbacks
+```c
+  struct lsquic_reader {
+    /* Return number of bytes written to buf */
+    size_t (*lsqr_read) (void *lsqr_ctx, void *buf, size_t count);
+    /* Return number of bytes remaining in the reader.  */
+    size_t (*lsqr_size) (void *lsqr_ctx);
+    void    *lsqr_ctx;
+  };
+
+  /* Return umber of bytes written or -1 on error. */
+  ssize_t
+  lsquic_stream_writef (lsquic_stream_t *, struct lsquic_reader *);
+```
+
+# Stream write take 2
+- Useful when reading from external data source, such as file descriptor
+- Read directly into stream frame
+```c
+  static void
+  tut_server_on_write_v1 (lsquic_stream_t *stream, lsquic_stream_ctx_t *h)
+  {
+      struct tut_server_stream_ctx *const tssc = (void *) h;
+      struct lsquic_reader reader = { tssc_read, tssc_size, tssc, };
+      ssize_t nw = lsquic_stream_writef(stream, &reader);
+      if (nw > 0 && tssc->tssc_off == tssc->tssc_sz)
+          lsquic_stream_close(stream);
+  /* --- 8< --- snip --- 8< --- */
+  }
+```
+
+# Reader size callback
+- Return number of bytes remaining
+```c
+  static size_t
+  tssc_size (void *ctx)
+  {
+    struct tut_server_stream_ctx *tssc = ctx;
+    return tssc->tssc_sz - tssc->tssc_off;
+  }
+```
+
+# Reader read callback
+- `count` is calculated using `tssc_size()`
+- If larger than amount of remaining data, may indicate truncation
+```c
+  static size_t
+  tssc_read (void *ctx, void *buf, size_t count)
+  {
+    struct tut_server_stream_ctx *tssc = ctx;
+
+    if (count > tssc->tssc_sz - tssc->tssc_off)
+      count = tssc->tssc_sz - tssc->tssc_off;
+    memcpy(buf, tssc->tssc_buf + tssc->tssc_off, count);
+    tssc->tssc_off += count;
+    return count;
+  }
+```
+
 # Client: making connection
 ```c
   lsquic_conn_t *
