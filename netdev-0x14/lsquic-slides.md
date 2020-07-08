@@ -749,6 +749,28 @@ void tut_process_conns (struct tut *tut) {
   };
 ```
 
+# Engine settings
+- Engine API's `ea_settings` may be pointed to settings.
+- `struct lsquic_engine_settings`.
+- There are *many* settings (over 50).
+- Do use `lsquic_engine_init_settings()`.
+
+# Settings helper functions
+```c
+  /* Initialize `settings' to default values */
+  void
+  lsquic_engine_init_settings (struct lsquic_engine_settings *,
+    /* Bitmask of LSENG_SERVER and LSENG_HTTP */
+                               unsigned lsquic_engine_flags);
+
+  /* Check settings for errors, return 0 on success, -1 on failure. */
+  int
+  lsquic_engine_check_settings (const struct lsquic_engine_settings *,
+                                unsigned lsquic_engine_flags,
+                                /* Optional, can be NULL: */
+                                char *err_buf, size_t err_buf_sz);
+```
+
 # QUIC Tools
 
 - Wireshark
