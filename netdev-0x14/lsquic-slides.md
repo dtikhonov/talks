@@ -771,7 +771,32 @@ void tut_process_conns (struct tut *tut) {
                                 char *err_buf, size_t err_buf_sz);
 ```
 
-# QUIC Tools
+# Tools: Wireshark
+- Wireshark supports IETF QUIC
+- Need version 3.3 for Internet-Draft 29 support
+- Export TLS secrets using `ea_keylog_if`
+- Example: `-G` option in `tut`:
+```c
+  if (key_log_dir) {
+    eapi.ea_keylog_if = &keylog_if;
+    eapi.ea_keylog_ctx = (void *) key_log_dir;
+  }
+```
 
-- Wireshark
-- qvis
+# LSQUIC API for key logging
+```c
+  /* Secrets are logged per connection.  Interface to open file (handle),
+   * log lines, and close file.
+   */
+  struct lsquic_keylog_if {
+      void * (*kli_open) (void *keylog_ctx, lsquic_conn_t *);
+      void   (*kli_log_line) (void *handle, const char *line);
+      void   (*kli_close) (void *handle);
+  };
+
+  struct lsquic_engine_api {
+    /* --- 8< --- snip --- 8< --- */
+    const struct lsquic_keylog_if       *ea_keylog_if;
+    void                                *ea_keylog_ctx;
+  };
+```
