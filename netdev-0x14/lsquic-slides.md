@@ -771,6 +771,24 @@ void tut_process_conns (struct tut *tut) {
                                 char *err_buf, size_t err_buf_sz);
 ```
 
+# Example in tut.c
+```c
+  case 'o':   /* For example: -o version=h3-27 */
+    if (!override_default_settings) {
+      lsquic_engine_init_settings(&settings,
+                            cert_file || key_file ? LSENG_SERVER : 0);
+      override_default_settings = 1;
+    }
+  /* ... */
+
+    else if (0 == strncmp(optarg, "cc_algo=", val - optarg))
+      settings.es_cc_algo = atoi(val);
+  /* ... */
+
+  if (override_default_settings)
+    eapi.ea_settings = &settings;
+```
+
 # Tools: Wireshark
 - Wireshark supports IETF QUIC
 - Need version 3.3 for Internet-Draft 29 support
