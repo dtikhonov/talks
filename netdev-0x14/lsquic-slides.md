@@ -1,11 +1,6 @@
 % Programming LSQUIC
-% Dmitri Tikhonov
+% Dmitri Tikhonov / LiteSpeed Technologies
 % Netdev 0x14
-
-# About presenter
-- Have programmed many things
-- Doing QUIC for last 4 years
-- Participate in IETF QUIC standardization
 
 # Presentation outline
 - Introduction
@@ -773,20 +768,18 @@ void tut_process_conns (struct tut *tut) {
 
 # Example in tut.c
 ```c
-  case 'o':   /* For example: -o version=h3-27 */
-    if (!override_default_settings) {
-      lsquic_engine_init_settings(&settings,
-                            cert_file || key_file ? LSENG_SERVER : 0);
-      override_default_settings = 1;
-    }
+  if (!settings_initialized) {
+    lsquic_engine_init_settings(&settings,
+                    cert_file || key_file ? LSENG_SERVER : 0);
+    settings_initialized = 1;
+  }
   /* ... */
 
-    else if (0 == strncmp(optarg, "cc_algo=", val - optarg))
-      settings.es_cc_algo = atoi(val);
+  else if (0 == strncmp(optarg, "cc_algo=", val - optarg))
+    settings.es_cc_algo = atoi(val);
   /* ... */
 
-  if (override_default_settings)
-    eapi.ea_settings = &settings;
+  eapi.ea_settings = &settings;
 ```
 
 # Tools: Wireshark
