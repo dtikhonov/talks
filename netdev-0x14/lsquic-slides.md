@@ -11,8 +11,9 @@
   - Instantiation and callbacks
 - Bonus section, time permitting
 
-# Example Program
+# Example Program: tut.c
 - You can follow along
+- Snippets of `tut.c` are used as examples
 - Compile the code while I talk about architecture
 
 ```bash
@@ -56,10 +57,15 @@ make
 - *2020*. HTTP/3 is an RFC. (One can hope.)
 
 # Features
-- Latest IETF QUIC and HTTP/3 support, including
+- Latest (Draft-27, Draft-28, and Draft-29) IETF QUIC and HTTP/3
+  support, including
   - ECN, spin bits, path migration, NAT rebinding
   - Push promises, key updates
-  - Several experimental extensions: loss bits, timestamps, delayed ACKs
+  - Several experimental extensions:
+    - loss bits
+    - timestamps
+    - delayed ACKs
+    - QUIC grease bit
 - Google QUIC versions Q043, Q046, and Q050 (what Chrome currently uses)
 - Many, many knobs to play with
 
@@ -87,6 +93,7 @@ make
 - Optimization: write-through
 
 # Connection
+- Created, managed, and destroyed by engine
 - Client initiates connection; object created before handshake is successful.
 - Server: by the time user code gets the connection object, the handshake has already been completed
 - Can have many streams during lifetime
