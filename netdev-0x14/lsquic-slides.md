@@ -819,5 +819,81 @@ void tut_process_conns (struct tut *tut) {
   };
 ```
 
+# Key logging in tut.c
+```c
+static struct lsquic_keylog_if keylog_if = {
+  .kli_open       = keylog_open,
+  .kli_log_line   = keylog_log_line,
+  .kli_close      = keylog_close,
+};
+
+static void
+keylog_log_line (void *handle, const char *line)
+{
+  fputs(line, handle);
+  fputs("\n", handle);
+  fflush(handle);
+}
+```
+
 # Wireshark screenshot
 ![Wireshark screenshot](wireshark.png)
+
+# Connection ID
+```c
+#define MAX_CID_LEN 20
+
+typedef struct lsquic_cid
+{
+    uint_fast8_t    len;
+    union {
+        uint8_t     buf[MAX_CID_LEN];
+        uint64_t    id;
+    }               u_cid;
+#define idbuf u_cid.buf
+} lsquic_cid_t;
+
+#define LSQUIC_CIDS_EQ(a, b) ((a)->len == 8 ? \
+    (b)->len == 8 && (a)->u_cid.id == (b)->u_cid.id : \
+    (a)->len == (b)->len && 0 == memcmp((a)->idbuf, (b)->idbuf, (a)->len))
+```
+
+# Get this-and-that API
+```c
+const lsquic_cid_t *
+lsquic_conn_id (const lsquic_conn_t *);
+
+lsquic_conn_t *
+lsquic_stream_conn (const lsquic_stream_t *);
+
+lsquic_engine_t *
+lsquic_conn_get_engine (lsquic_conn_t *);
+
+int
+lsquic_conn_get_sockaddr (lsquic_conn_t *c,
+      const struct sockaddr **local, const struct sockaddr **peer);
+```
+
+# Stream priorities
+- 1 through 256, where 1 is the highest priority
+- Controls dispatch of `on_read()` and `on_write()` callbacks
+- *Not* HTTP/3 priorities (those are coming later)
+```c
+/* Set stream priority.  Valid priority values are 1 through 256,
+ * inclusive.  Lower value means higher priority.
+ */
+int
+lsquic_stream_set_priority (lsquic_stream_t *, unsigned priority);
+
+/* Return current priority of the stream */
+unsigned
+lsquic_stream_priority (const lsquic_stream_t *);
+```
+
+# Bonus Section #1
+## Linux Wishlist
+
+# ECN *and* `MSG_ZEROCOPY`
+
+# DPLPMTUD: Suppressing `EMSGSIZE`
+
