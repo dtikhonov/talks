@@ -870,7 +870,7 @@ lsquic_engine_t *
 lsquic_conn_get_engine (lsquic_conn_t *);
 
 int
-lsquic_conn_get_sockaddr (lsquic_conn_t *c,
+lsquic_conn_get_sockaddr (lsquic_conn_t *,
       const struct sockaddr **local, const struct sockaddr **peer);
 ```
 
@@ -890,6 +890,27 @@ unsigned
 lsquic_stream_priority (const lsquic_stream_t *);
 ```
 
+# But wait, there is more!
+- LSQUIC has more features that we did not cover
+- Shared memory callbacks to support persistent crypto contexts
+  and multi-process setups
+- Callbacks to handle memory allocation for outgoing packets
+- Callbacks to observe CID life cycle: new, live, and dead.  Useful
+  in multi-process setups
+- Server certificate verification callbacks
+- And more: auto-tuning; r/w callback no-progress detection; r/w
+  callback dispatch: once vs loop; different congestion controls;
+  optimistic ACK attack detection; stream fragmentation, reassembly,
+  and commitment attack migitation
+- Refer to documentation and to more involved example programs
+  in the LSQUIC distribution
+
+```perl
+
+
+__END__
+```
+
 # Bonus Section #1
 ## Linux Wishlist
 
@@ -897,3 +918,19 @@ lsquic_stream_priority (const lsquic_stream_t *);
 
 # DPLPMTUD: Suppressing `EMSGSIZE`
 
+# Bonus Section #2
+## HTTP/3
+
+# HTTP/3 differences
+- ALPN is required
+  - This step is handled by the library
+  - QUIC version I-D 29 corresponds to ALPN "h3-29" and so on
+  - QUIC version 1 will correspond to "h3"
+- Send headers before sending payload
+  - Use `lsquic_stream_send_headers()`
+- Optional: header callbacks via `ea_hsi_if` (HSI: header set interface)
+  - If not specified, LSQUIC will pretend you are reading HTTP/1.x-like
+    stream.
+- Server must use `ea_lookup_cert` callback
+
+# Example: tut.c HTTP/3 client
