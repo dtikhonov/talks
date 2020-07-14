@@ -933,4 +933,47 @@ __END__
     stream.
 - Server must use `ea_lookup_cert` callback
 
-# Example: tut.c HTTP/3 client
+# h3cli.c: a simple HTTP/3 client
+- Specify hostname, port number (or service name), and path
+- Default method is `GET`
+- Websites to try:
+  - www.litespeedtech.com
+  - www.google.com
+  - www.facebook.com
+
+```shell
+./h3cli www.litespeedtech.com 443 / -M HEAD
+```
+
+# h3cli.c: use `LSENG_HTTP` flag
+```c
+  /* The following three functions take the HTTP flag: */
+
+  lsquic_engine_init_settings(&settings, LSENG_HTTP);
+
+  if (0 != lsquic_engine_check_settings(&settings, LSENG_HTTP,
+                                              errbuf, sizeof(errbuf)))
+    /* Error */
+
+  h3cli.h3cli_engine = lsquic_engine_new(LSENG_HTTP, &eapi);
+```
+
+# h3cli.c: send requests
+```c
+  static void h3cli_client_on_write (struct lsquic_stream *stream,
+                                            lsquic_stream_ctx_t *h) {
+    struct header_buf hbuf;
+    struct lsxpack_header harray[5];
+    struct lsquic_http_headers headers = { 5, harray, };
+
+    h3cli_set_header(&harray[0], &hbuf, V(":method"), V("GET"));
+    h3cli_set_header(&harray[1], &hbuf, V(":scheme"), V("https"));
+    /* --- 8< --- snip --- 8< --- */
+
+    if (0 == lsquic_stream_send_headers(stream, &headers, 0))
+    {
+        lsquic_stream_shutdown(stream, 1);
+        lsquic_stream_wantread(stream, 1);
+    }
+  }
+```
