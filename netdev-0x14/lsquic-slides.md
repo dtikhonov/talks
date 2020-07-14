@@ -114,7 +114,7 @@ A single include file, contains all the necessary LSQUIC declarations:
   #include "lsquic.h"
 ```
 
-It pulls in auxiliary `lsquic_types.h` and `lsxpack_header.h`.
+It pulls in auxiliary `lsquic_types.h`
 
 # Library initialization
 
@@ -730,7 +730,7 @@ void tut_process_conns (struct tut *tut) {
   enum lsquic_version
   {
       LSQVER_043, LSQVER_046, LSQVER_050,     /* Google QUIC */
-      LSQVER_ID25, LSQVER_ID27, LSQVER_ID29,  /* IETF QUIC */
+      LSQVER_ID27, LSQVER_ID28, LSQVER_ID29,  /* IETF QUIC */
       /* ...some special entries skipped */
       N_LSQVER
   };
@@ -787,6 +787,39 @@ void tut_process_conns (struct tut *tut) {
   /* ... */
 
   eapi.ea_settings = &settings;
+```
+
+# Logging mechanism
+- By default, log messages are thrown away
+```c
+  struct lsquic_logger_if {
+    int (*log_buf)(void *logger_ctx, const char *buf, size_t len);
+  };
+
+  enum lsquic_logger_timestamp_style { LLTS_NONE, LLTS_HHMMSSMS,
+      LLTS_YYYYMMDD_HHMMSSMS, LLTS_CHROMELIKE, LLTS_HHMMSSUS,
+      LLTS_YYYYMMDD_HHMMSSUS, N_LLTS };
+
+  void lsquic_logger_init(const struct lsquic_logger_if *,
+      void *logger_ctx, enum lsquic_logger_timestamp_style);
+```
+
+# Logging in tut.c
+- Check out `-l` and `-L` flags
+- E.g. `-l event=debug,stream=info` or `-L debug`
+```c
+  static FILE *s_log_fh;
+
+  static int
+  tut_log_buf (void *ctx, const char *buf, size_t len) {
+    FILE *out = ctx;
+    fwrite(buf, 1, len, out);
+    fflush(out);
+    return 0;
+  }
+  static const struct lsquic_logger_if logger_if = { tut_log_buf, };
+
+  lsquic_logger_init(&logger_if, s_log_fh, LLTS_HHMMSSUS);
 ```
 
 # Tools: Wireshark
@@ -904,9 +937,9 @@ lsquic_stream_priority (const lsquic_stream_t *);
   and commitment attack migitation
 - Refer to documentation and to more involved example programs
   in the LSQUIC distribution
+- https://lsquic.readthedocs.io/
 
 ```perl
-
 
 __END__
 ```
@@ -914,9 +947,42 @@ __END__
 # Bonus Section #1
 ## Linux Wishlist
 
-# ECN *and* `MSG_ZEROCOPY`
+# GSO and ECN
+- Rather, GSO *or* ECN
+- Cannot have both
+
+```c
+  /* Have kernel split `packet_sz` bytes into packets... */
+  cmsg->cmsg_level = SOL_UDP;
+  cmsg->cmsg_type = UDP_SEGMENT;
+  cmsg->cmsg_len = CMSG_LEN(sizeof(uint16_t));
+  *((uint16_t *) CMSG_DATA(cmsg)) = packet_sz;
+
+  /* ... but how can one specify ECN for each? */
+  cmsg->cmsg_level = IPPROTO_IP;
+  cmsg->cmsg_type  = IP_TOS;
+  cmsg->cmsg_len   = CMSG_LEN(sizeof(tos));
+  memcpy(CMSG_DATA(cmsg), &tos, sizeof(tos));
+```
 
 # DPLPMTUD: Suppressing `EMSGSIZE`
+`ip(7)` has this to say:
+
+> It is possible to implement RFC 4821 MTU probing with SOCK_DGRAM
+> or SOCK_RAW sockets by setting a value of IP_PMTUDISC_PROBE
+> (available since Linux 2.6.22).  This is also particularly
+> useful for diagnostic tools such as tracepath(8) that wish to
+> deliberately send probe packets larger than the observed Path MTU.
+
+```c
+  /* Even with this setting, sendmsg(2) returns -1 with EMSGSIZE
+   * if datagram larger than local interface's MTU
+   */
+  on = IP_PMTUDISC_PROBE;
+  s = setsockopt(fd, IPPROTO_IP, IP_MTU_DISCOVER, &on, sizeof(on));
+```
+
+- Painful: have to handle `EMSGSIZE` specially and retry `sendmmsg(2)`
 
 # Bonus Section #2
 ## HTTP/3
@@ -953,7 +1019,7 @@ __END__
 
   if (0 != lsquic_engine_check_settings(&settings, LSENG_HTTP,
                                               errbuf, sizeof(errbuf)))
-    /* Error */
+    /* error */ ;
 
   h3cli.h3cli_engine = lsquic_engine_new(LSENG_HTTP, &eapi);
 ```
@@ -977,3 +1043,12 @@ __END__
     }
   }
 ```
+
+# HTTP/3: configuration options
+- What's a few more tunable parameters between friends?
+- Push promises
+- Compression
+  - QPACK choices: table size; allow blocked streams?
+- Priorities (coming as an extension)
+- LSQUIC aims for sane defaults
+- Change to fit your needs and performance goals; YMMV
