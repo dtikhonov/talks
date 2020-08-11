@@ -46,8 +46,9 @@ make
 - Began as proprietary, then open-sourced
 - Vanilla C
 - Minimal dependencies
-- Flexibility
 - Performance
+- Robustness
+- Flexibility
 
 # History
 - *2016*. Goal: add Google QUIC support to LiteSpeed Web Server.
@@ -217,12 +218,17 @@ you can omit the appropriate flag.
   );
 ```
 
-# Resuming sending packets
-- If ``ea_packets_out`` can't send all packets, engine enters the
+# When an error occurs
+- `errno` is examined
+- `EAGAIN` (or `EWOULDBLOCK`) means retry later; engine enters the
   "can't send packets" mode
-  - For a second
 - Call ``lsquic_engine_send_unsent_packets()`` when sending is
   possible again
+- `EMSGSIZE` means the packet is too large.  This happens when MTU
+  probes are sent.  The engine retries sending without the offending
+  packet.
+- Other `errno` values cause immediate termination of corresponding
+  connection.
 
 # Outgoing packet specification
 - Why ``iovec``?
@@ -527,7 +533,7 @@ void tut_process_conns (struct tut *tut) {
 - The classic way to read
 - Easy, but it copies data
 ```c
-  static void
+  static void   /* v0 is the default.  On command line: -b 0 */
   tut_client_on_read_v0 (lsquic_stream_t *stream, lsquic_stream_ctx_t *h)
   {
     struct tut *tut = (struct tut *) h;
@@ -544,7 +550,7 @@ void tut_process_conns (struct tut *tut) {
 
 # Stream read take 2: use callback
 ```c
-  static void
+  static void   /* On command line: -b 1 */
   tut_client_on_read_v1 (lsquic_stream_t *stream, lsquic_stream_ctx_t *h)
   {
     struct tut *tut = (struct tut *) h;
@@ -581,7 +587,7 @@ void tut_process_conns (struct tut *tut) {
 ```c
   struct client_read_v2_ctx { struct tut *tut; lsquic_stream_t *stream; };
   
-  static void
+  static void   /* On command line: -b 2 */
   tut_client_on_read_v2 (lsquic_stream_t *stream,
                                               lsquic_stream_ctx_t *h) {
     struct tut *tut = (struct tut *) h;
@@ -614,7 +620,7 @@ void tut_process_conns (struct tut *tut) {
 
 # Stream write take 1
 ```c
-  static void
+  static void   /* v0 is the default.  On command line: -w 0 */
   tut_server_on_write_v0 (lsquic_stream_t *stream, lsquic_stream_ctx_t *h)
   {
     struct tut_server_stream_ctx *const tssc = (void *) h;
@@ -646,9 +652,9 @@ void tut_process_conns (struct tut *tut) {
 
 # Stream write take 2
 - Useful when reading from external data source, such as file descriptor
-- Read directly into stream frame
+- Write data directly into stream frame
 ```c
-  static void
+  static void   /* On command line: -w 1 */
   tut_server_on_write_v1 (lsquic_stream_t *stream, lsquic_stream_ctx_t *h)
   {
       struct tut_server_stream_ctx *const tssc = (void *) h;
@@ -698,7 +704,7 @@ void tut_process_conns (struct tut *tut) {
         void *peer_ctx,
         lsquic_conn_ctx_t *conn_ctx,
         const char *hostname,         /* Used for SNI */
-        unsigned short max_datagram_size, /* 0 means default */
+        unsigned short base_plpmtu, /* 0 means default */
         const unsigned char *sess_resume, size_t sess_resume_len,
         const unsigned char *token, size_t token_sz);
 ```
