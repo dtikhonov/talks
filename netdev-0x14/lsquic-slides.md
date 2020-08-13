@@ -138,6 +138,30 @@ and, depending on the platform, monotonic timers.
 If you plan to instantiate engines only in a single mode, client or server,
 you can omit the appropriate flag.
 
+# Introducing tut.c
+
+- Program to illustrate LSQUIC API use
+- Contains both client and server code
+- Echo service: client sends a line of text to server, the
+  server returns the line, reversed
+- Several examples that follow are excerpts from `tut.c`
+
+# Running tutorial program
+
+- Peruse online help: use the `-h` flag
+- Running client or server: the server takes `-c` and `-k` arguments
+
+```
+# Server:
+sh$ ./tut -c mycert-cert.pem -k mycert-key.pem ::0 12345
+
+# Client:
+sh$ ./tut ::1 12345 -L debug -f client.log
+Hello!
+!olleH
+^D
+```
+
 # Engine constructor
 - Server or client
 - HTTP mode
