@@ -733,13 +733,14 @@ void tut_process_conns (struct tut *tut) {
     way to go
 
 ```c
-  enum lsquic_version
-  {
+  enum lsquic_version {
       LSQVER_043, LSQVER_046, LSQVER_050,     /* Google QUIC */
       LSQVER_ID27, LSQVER_ID28, LSQVER_ID29,  /* IETF QUIC */
-      /* ...some special entries skipped */
-      N_LSQVER
+      /* ...some special entries skipped */             N_LSQVER
   };
+
+  /* This allows list of versions to be specified as bitmask: */
+  es_versions = (1 << LSQVER_ID28) | (1 << LSQVER_ID29);
 ```
 
 # Server: additional callbacks
@@ -779,19 +780,32 @@ void tut_process_conns (struct tut *tut) {
                                 char *err_buf, size_t err_buf_sz);
 ```
 
-# Example in tut.c
+# Settings example in tut.c 1/2
 ```c
-  if (!settings_initialized) {
-    lsquic_engine_init_settings(&settings,
-                    cert_file || key_file ? LSENG_SERVER : 0);
-    settings_initialized = 1;
+  case 'o':   /* For example: -o version=h3-27 -o cc_algo=2 */
+    if (!settings_initialized) {
+      lsquic_engine_init_settings(&settings,
+                      cert_file || key_file ? LSENG_SERVER : 0);
+      settings_initialized = 1;
+    }
+    /* ... */
+
+    else if (0 == strncmp(optarg, "cc_algo=", val - optarg))
+      settings.es_cc_algo = atoi(val);
+```
+
+# Settings example in tut.c 2/2
+```c
+  /* Check settings */
+  if (0 != lsquic_engine_check_settings(&settings,
+                  tut.tut_flags & TUT_SERVER ? LSENG_SERVER : 0,
+                  errbuf, sizeof(errbuf)))
+  {
+    LOG("invalid settings: %s", errbuf);
+    exit(EXIT_FAILURE);
   }
-  /* ... */
 
-  else if (0 == strncmp(optarg, "cc_algo=", val - optarg))
-    settings.es_cc_algo = atoi(val);
   /* ... */
-
   eapi.ea_settings = &settings;
 ```
 
@@ -810,12 +824,27 @@ void tut_process_conns (struct tut *tut) {
       void *logger_ctx, enum lsquic_logger_timestamp_style);
 ```
 
-# Logging in tut.c
-- Check out `-l` and `-L` flags
+# Logging levels and modules
+- Eight log levels
+  - Debug, info, notice, warning, error, alert, emerg, crit.
+  - Only first five are used; warning is the default
+- Many modules
+  - Event, engine, stream, connection, bbr, and many more
+  - Refer to [documentation](https://lsquic.readthedocs.io/en/latest/apiref.html#list-of-log-modules)
+
+```c
+  /* Set log level for all modules */
+  int lsquic_set_log_level (const char *log_level);
+
+  /* Set log level per module "event=debug" */
+  int lsquic_logger_lopt (const char *optarg);
+```
+
+# Logging in tut.c 1/2
+- Check out `-f`, `-l`, and `-L` flags
+- E.g. `-f log.file` (goes to *stderr* by default)
 - E.g. `-l event=debug,stream=info` or `-L debug`
 ```c
-  static FILE *s_log_fh;
-
   static int
   tut_log_buf (void *ctx, const char *buf, size_t len) {
     FILE *out = ctx;
@@ -827,6 +856,23 @@ void tut_process_conns (struct tut *tut) {
 
   lsquic_logger_init(&logger_if, s_log_fh, LLTS_HHMMSSUS);
 ```
+
+# Logging in tut.c 2/2
+```c
+  case 'l':   /* e.g. -l event=debug,cubic=info */
+    if (0 != lsquic_logger_lopt(optarg)) {
+        fprintf(stderr, "error processing -l option\n");
+        exit(EXIT_FAILURE);
+    }
+    break;
+  case 'L':   /* e.g. -L debug */
+    if (0 != lsquic_set_log_level(optarg)) {
+        fprintf(stderr, "error processing -L option\n");
+        exit(EXIT_FAILURE);
+    }
+    break;
+```
+
 
 # Tools: Wireshark
 - Wireshark supports IETF QUIC
@@ -998,6 +1044,8 @@ __END__
   - This step is handled by the library
   - QUIC version I-D 29 corresponds to ALPN "h3-29" and so on
   - QUIC version 1 will correspond to "h3"
+- SNI is required
+  - Pass it to `lsquic_engine_connect()`
 - Send headers before sending payload
   - Use `lsquic_stream_send_headers()`
 - Optional: header callbacks via `ea_hsi_if` (HSI: header set interface)
@@ -1028,6 +1076,17 @@ __END__
     /* error */ ;
 
   h3cli.h3cli_engine = lsquic_engine_new(LSENG_HTTP, &eapi);
+```
+
+# h3cli.c: connect
+```c
+  h3cli.h3cli_conn = lsquic_engine_connect(
+    h3cli.h3cli_engine, N_LSQVER,
+    (struct sockaddr *) &h3cli.h3cli_local_sas, &addr.sa,
+    (void *) (uintptr_t) h3cli.h3cli_sock_fd,  /* Peer ctx */
+    NULL,
+    h3cli.h3cli_hostname,   /* <=== This becomes SNI in ClientHello */
+    0, NULL, 0, NULL, 0);
 ```
 
 # h3cli.c: send requests
