@@ -46,21 +46,23 @@ make
 - Began as proprietary, then open-sourced
 - Vanilla C
 - Minimal dependencies
-- Performance
-- Robustness
-- Flexibility
+- Performance: minimize buffering, memory, CPU cycles
+- Robustness: mitigate protocol attacks
+- Flexibility: TIMTOWTDI, from callback dispatch to event loop
+- Portability: Linux, FreeBSD, MacOS, Windows, Android, Raspberry Pi
 
 # History
 - *2016*. Goal: add Google QUIC support to LiteSpeed Web Server.
 - *2017*. gQUIC support is shipped (Q035); LSQUIC is released on GitHub (client only).
 - *2018*. IETF QUIC work begins. LSQUIC is the first functional HTTP/3 server.
 - *2019*. LSQUIC 2.0 is released on GitHub (including the server bits). HTTP/3 support is shipped.
-- *2020*. HTTP/3 is an RFC. (One can hope.)
+- *2020*. QUIC and HTTP/3 are new RFCs. (One can hope.)
 
 # Features
 - Latest (Draft-27, Draft-28, and Draft-29) IETF QUIC and HTTP/3
   support, including
   - ECN, spin bits, path migration, NAT rebinding
+  - DPLPMTUD
   - Push promises, key updates
   - Several experimental extensions:
     - loss bits
@@ -71,20 +73,30 @@ make
 - Many, many knobs to play with
 
 # Architecture
+- Does not use sockets
+  - bring your own networking via callbacks
 - Bring your own event loop
-- Bring your own networking
+  - or none at all
 - Bring your own TLS context
-- Scalable connection management
+- Scalable connection management in priority queues:
+  - ordered by next event time
+  - ready connections ordered by last tick time
 
 # Objects
 - Engine
+  - Connection management, packet scheduling
+  - Client mode *or* server mode
+  - HTTP mode
 - Connection
+  - Created, managed, and destroyed by engine
+  - Client initiates connection; object created before handshake is successful.
+  - Server: by the time user code gets the connection object, the handshake has already been completed
+  - Can have many streams during lifetime
 - Stream
-
-# Engine
-- Client mode *or* server mode
-- If need both, instantiate two
-- HTTP mode
+  - Belongs to a connection
+  - Bidirectional
+  - Usually corresponds to request/response exchange -- depending on
+    the application protocol
 
 # HTTP mode
 - Single library for both QUIC and HTTP/3
@@ -93,34 +105,16 @@ make
 - Historical or strategic?
 - Optimization: write-through
 
-# Connection
-- Created, managed, and destroyed by engine
-- Client initiates connection; object created before handshake is successful.
-- Server: by the time user code gets the connection object, the handshake has already been completed
-- Can have many streams during lifetime
-
-# Stream
-- Belongs to a connection
-- Bidirectional
-- Usually corresponds to request/response exchange -- depending on
-  the application protocol
-- API tries to mimic socket
-  - But one can only take it so far
-
 # Include files
-
-A single include file, contains all the necessary LSQUIC declarations:
 
 ```c
   #include "lsquic.h"
 ```
 
-It pulls in auxiliary `lsquic_types.h`
+- This single include file contains all the necessary LSQUIC declarations.
+- It pulls in auxiliary `lsquic_types.h`.
 
 # Library initialization
-
-Before the first engine object is instantiated, the library must be
-initialized.
 
 ```c
   /* Example from tut.c */
@@ -132,8 +126,11 @@ initialized.
   }
 ```
 
-This will initialize the crypto library, gQUIC server certificate cache,
-and, depending on the platform, monotonic timers.
+Before the first engine object is instantiated, the library must be
+initialized.
+
+This call will initialize the crypto library, gQUIC server certificate
+cache, and, depending on the platform, monotonic timers.
 
 If you plan to instantiate engines only in a single mode, client or server,
 you can omit the appropriate flag.
@@ -255,9 +252,6 @@ Hello!
   connection.
 
 # Outgoing packet specification
-- Why ``iovec``?
-  - UDP datagram can contain more than one QUIC packet
-  - Packet coalescing
 
 ```c
   struct lsquic_out_spec
@@ -270,6 +264,10 @@ Hello!
       int                    ecn; /* 0 - 3; see RFC 3168 */
   };
 ```
+
+- Why ``iovec``?
+  - UDP datagram can contain more than one QUIC packet
+  - Packet coalescing
 
 # Packets out example
 ```c
@@ -291,10 +289,6 @@ Hello!
 ```
 
 # When to process connections
-- Connections are either tickable immediately or at some future point
-- Future point may be a retransmission, idle, or some other alarm
-- Only exception when idle timeout is disabled (on by default)
-- Engine knows when to process connections next
 
 ```c
   /* Returns true if there are connections to be processed, in
@@ -303,6 +297,11 @@ Hello!
   int
   lsquic_engine_earliest_adv_tick (lsquic_engine_t *, int *diff);
 ```
+
+- Connections are either tickable immediately or at some future point
+- Future point may be a retransmission, idle, or some other alarm
+- Only exception when idle timeout is disabled (on by default)
+- Engine knows when to process connections next
 
 # Example with event loop
 ```c
@@ -334,18 +333,29 @@ void tut_process_conns (struct tut *tut) {
 - A control frame needs to be sent out
 - A stream needs to be serviced or created
 
-# Required engine callbacks
-- Callback to send packets
-- Connection and stream callbacks
-  - ``on_new_conn()``, ``on_read()``, and so on
-- Callback to get default TLS context (server only)
+# Processing connections
+- To process connections, call `lsquic_engine_process_conns()`
+- This calls necessary callbacks to read from and write to streams
+  and send packets out
+- Do not call `lsquic_engine_process_conns()` from inside callbacks:
+  it is not reentrant.
+- Call `lsquic_engine_process_conns()` when advised by
+  `lsquic_engine_earliest_adv_tick()`
+- Another function that sends packets is `lsquic_engine_send_unsent_packets()`
+  - Call it if there was a previous failure to send out all packets
 
-# Optional callbacks
-- Certificate lookup by SNI (server only)
-- Outgoing packet memory allocation
-- Connection ID lifecycle: new, live, and old CIDs
-- Shared memory hash
-- HTTP header set processing
+# Engine callbacks
+- Required
+  - Callback to send packets
+  - Connection and stream callbacks
+    - ``on_new_conn()``, ``on_read()``, and so on
+  - Callback to get default TLS context (server only)
+- Optional
+  - Certificate lookup by SNI (server only)
+  - Outgoing packet memory allocation
+  - Connection ID lifecycle: new, live, and old CIDs
+  - Shared memory hash
+  - HTTP header set processing
 
 # Stream and connection callbacks
 - Specified in ``struct lsquic_stream_if``
@@ -416,7 +426,6 @@ void tut_process_conns (struct tut *tut) {
 ```
 
 # On write
-- If called, you should be able to write *some* bytes
 ```c
   static void
   my_on_write (lsquic_stream_t *stream, lsquic_stream_ctx_t *h) {
@@ -427,6 +436,9 @@ void tut_process_conns (struct tut *tut) {
           lsquic_stream_close(stream);
   }
 ```
+
+- If called, you should be able to write *some* bytes
+- Is not called unless `lsquic_stream_wantwrite(stream, 1)` is called first
 
 # On stream close
 - After this, stream will be destroyed, drop all pointers to it
@@ -490,6 +502,10 @@ void tut_process_conns (struct tut *tut) {
   - Except when it isn't
 - Writes smaller than packet size are buffered
 - Inside `on_read` and `on_write` callbacks, reading and writing succeeds
+- "On read" and "on write" callbacks are called in a loop
+  - Don't forget to stop reading or writing
+  - Make progress
+  - Circuit breaker to save you
 - Unless stream is reset, in which case reading from stream returns -1
   - This is done so that user can collect error
 
@@ -554,8 +570,6 @@ void tut_process_conns (struct tut *tut) {
 ```
 
 # Stream read: copy data
-- The classic way to read
-- Easy, but it copies data
 ```c
   static void   /* v0 is the default.  On command line: -b 0 */
   tut_client_on_read_v0 (lsquic_stream_t *stream, lsquic_stream_ctx_t *h)
@@ -571,6 +585,8 @@ void tut_process_conns (struct tut *tut) {
   /* --- 8< --- snip --- 8< --- */
   }
 ```
+- The classic way to read
+- Easy, but it copies data
 
 # Stream read take 2: use callback
 ```c
@@ -590,8 +606,6 @@ void tut_process_conns (struct tut *tut) {
 ```
 
 # Stream read take 2: the callback itself
-- `len` may be arbitrary (and larger than packet size)
-- Return value smaller than `len` to stop callback
 ```c
   static size_t
   tut_client_readf_v1 (void *ctx, const unsigned char *data,
@@ -604,10 +618,13 @@ void tut_process_conns (struct tut *tut) {
       }
       return len;
   }
+
 ```
 
+- `len` may be arbitrary (and larger than packet size)
+- Return value smaller than `len` to stop callback
+
 # Stream read take 3: use FIN
-- Save one `on_read()` call
 ```c
   struct client_read_v2_ctx { struct tut *tut; lsquic_stream_t *stream; };
   
@@ -622,6 +639,7 @@ void tut_process_conns (struct tut *tut) {
       /* ERROR */
   }
 ```
+- Save one `on_read()` call
 
 # Stream read take 3: the callback itself
 ```c
@@ -675,8 +693,6 @@ void tut_process_conns (struct tut *tut) {
 ```
 
 # Stream write take 2
-- Useful when reading from external data source, such as file descriptor
-- Write data directly into stream frame
 ```c
   static void   /* On command line: -w 1 */
   tut_server_on_write_v1 (lsquic_stream_t *stream, lsquic_stream_ctx_t *h)
@@ -690,6 +706,9 @@ void tut_process_conns (struct tut *tut) {
   }
 ```
 
+- Useful when reading from external data source, such as file descriptor
+- Write data directly into stream frame
+
 # Reader size callback
 - Return number of bytes remaining
 ```c
@@ -702,8 +721,6 @@ void tut_process_conns (struct tut *tut) {
 ```
 
 # Reader read callback
-- `count` is calculated using `tssc_size()`
-- If larger than amount of remaining data, may indicate truncation
 ```c
   static size_t
   tssc_read (void *ctx, void *buf, size_t count)
@@ -717,6 +734,9 @@ void tut_process_conns (struct tut *tut) {
     return count;
   }
 ```
+
+- `count` is calculated using `tssc_size()`
+- If larger than amount of remaining data, may indicate truncation
 
 # Client: making connection
 ```c
@@ -733,6 +753,25 @@ void tut_process_conns (struct tut *tut) {
         const unsigned char *token, size_t token_sz);
 ```
 
+# Specifying QUIC version
+- There is no version negotiation version in QUIC... yet
+- When passed to ``lsquic_engine_connect``, ``N_LSQVER`` means "let
+  the engine pick the version"
+  - The engine picks the highest it supports, so that's a good
+    way to go
+
+```c
+  enum lsquic_version {
+      LSQVER_043, LSQVER_046, LSQVER_050,     /* Google QUIC */
+      LSQVER_ID27, LSQVER_ID28, LSQVER_ID29,  /* IETF QUIC */
+      /* ...some special entries skipped */
+      N_LSQVER    /* <====================== Special value */
+  };
+
+  /* This allows list of versions to be specified as bitmask: */
+  es_versions = (1 << LSQVER_ID28) | (1 << LSQVER_ID29);
+```
+
 # Excerpt from tut.c
 ```c
     tut.tut_u.c.conn = lsquic_engine_connect(
@@ -746,25 +785,6 @@ void tut_process_conns (struct tut *tut) {
         exit(EXIT_FAILURE);
     }
     tut_process_conns(&tut);
-```
-
-
-# Specifying QUIC version
-- There is no version negotiation version in QUIC... yet
-- When passed to ``lsquic_engine_connect``, ``N_LSQVER`` means "let
-  the engine pick the version"
-  - The engine picks the highest it supports, so that's a good
-    way to go
-
-```c
-  enum lsquic_version {
-      LSQVER_043, LSQVER_046, LSQVER_050,     /* Google QUIC */
-      LSQVER_ID27, LSQVER_ID28, LSQVER_ID29,  /* IETF QUIC */
-      /* ...some special entries skipped */             N_LSQVER
-  };
-
-  /* This allows list of versions to be specified as bitmask: */
-  es_versions = (1 << LSQVER_ID28) | (1 << LSQVER_ID29);
 ```
 
 # Server: additional callbacks
@@ -835,7 +855,12 @@ void tut_process_conns (struct tut *tut) {
 
 # Logging mechanism
 - By default, log messages are thrown away
+- Use `lsquic_logger_init()` to assign library-wide logger callback
+- The useful `LLTS_CHROMELIKE` enum
 ```c
+  void lsquic_logger_init(const struct lsquic_logger_if *,
+      void *logger_ctx, enum lsquic_logger_timestamp_style);
+
   struct lsquic_logger_if {
     int (*log_buf)(void *logger_ctx, const char *buf, size_t len);
   };
@@ -843,9 +868,6 @@ void tut_process_conns (struct tut *tut) {
   enum lsquic_logger_timestamp_style { LLTS_NONE, LLTS_HHMMSSMS,
       LLTS_YYYYMMDD_HHMMSSMS, LLTS_CHROMELIKE, LLTS_HHMMSSUS,
       LLTS_YYYYMMDD_HHMMSSUS, N_LLTS };
-
-  void lsquic_logger_init(const struct lsquic_logger_if *,
-      void *logger_ctx, enum lsquic_logger_timestamp_style);
 ```
 
 # Logging levels and modules
@@ -897,6 +919,26 @@ void tut_process_conns (struct tut *tut) {
     break;
 ```
 
+# Log messages example
+```
+[QUIC:B508E8AA234E0421] event: generated STREAM frame: stream 0,
+        offset: 0, size: 3, fin: 1                                      \
+[QUIC:B508E8AA234E0421-0] stream: flushed to or past required offset 3
+[QUIC:B508E8AA234E0421] event: sent packet 13, type Short,              \
+        crypto: forw-secure, size 32, frame types: STREAM, ecn: 0,      \
+        spin: 0; kp: 0, path: 0, flags: 9470472
+[QUIC:B508E8AA234E0421] event: packet in: 15, type: Short, size: 44;    \
+        ecn: 0, spin: 0; path: 0
+[QUIC:B508E8AA234E0421] rechist: received 15
+[QUIC:B508E8AA234E0421] event: ACK frame in: [13-9]
+[QUIC:B508E8AA234E0421] conn: about to process QUIC_FRAME_STREAM frame
+[QUIC:B508E8AA234E0421] event: STREAM frame in: stream 0; offset 0;     \
+        size 3; fin: 1
+[QUIC:B508E8AA234E0421-0] stream: received stream frame, offset 0x0,    \
+        len 3; fin: 1
+[QUIC:B508E8AA234E0421-0] di: FIN set at 3
+
+```
 
 # Tools: Wireshark
 - Wireshark supports IETF QUIC
@@ -978,10 +1020,12 @@ lsquic_stream_conn (const lsquic_stream_t *);
 lsquic_engine_t *
 lsquic_conn_get_engine (lsquic_conn_t *);
 
-int
-lsquic_conn_get_sockaddr (lsquic_conn_t *,
+int lsquic_conn_get_sockaddr (lsquic_conn_t *,
       const struct sockaddr **local, const struct sockaddr **peer);
 ```
+
+- Don't misinterpret the CID
+- QUIC does not do true multipath yet
 
 # Stream priorities
 - 1 through 256, where 1 is the highest priority
